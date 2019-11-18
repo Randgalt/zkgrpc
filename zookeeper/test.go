@@ -6,10 +6,10 @@ import (
 	"io"
 	"log"
 	"sync"
-	"sync/atomic"
 )
 
 func Test() {
+	// standard gRPC methods to connect
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	conn, err := grpc.Dial("localhost:2181", opts...)
@@ -21,10 +21,10 @@ func Test() {
 	stream, err := client.Process(context.Background())
 	waitc := make(chan struct{})
 
-	var lastSeenZxid int64 = 0
-	var wg sync.WaitGroup
+	var wg sync.WaitGroup		// semaphore to wait for successful connect
 	wg.Add(1)
-	go func() {
+
+	go func() {		// go channel for receiving responses
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
@@ -33,19 +33,22 @@ func Test() {
 				return
 			}
 			if err != nil {
-				log.Fatalf("Failed to receive a note : %v", err)
+				log.Fatalf("Error: %v", err)
 			}
 			if in.Header != nil {
-				atomic.StoreInt64(&lastSeenZxid, in.Header.Zxid)
+				SetLastSeenZxid(in.Header.Zxid)
 			}
 
 			if in.GetConnect() != nil {
 				wg.Done()
 			}
+
+			// just print out responses for now
 			log.Printf("Header: %v - Response: %v", in.Header, in.Detail)
 		}
 	}()
 
+	// send connect request
 	var request = &RpcRequest{
 		Header: &RpcRequestHeader{
 			Xid: GetXid(),
@@ -56,8 +59,9 @@ func Test() {
 	}
 	err = stream.Send(request)
 
-	wg.Wait()
+	wg.Wait()	// wait for connection success
 
+	// send a ZNode create for /test
 	request = &RpcRequest{
 		Header: &RpcRequestHeader{
 			Xid: GetXid(),
@@ -69,6 +73,19 @@ func Test() {
 	}
 	err = stream.Send(request)
 
+	// send a ZNode check-exists for /test with watcher
+	request = &RpcRequest{
+		Header: &RpcRequestHeader{
+			Xid: GetXid(),
+		},
+		Detail: &RpcRequest_Exists{Exists: &RpcExistsRequest{
+			Path: "/test",
+			Watch:  true,
+		}},
+	}
+	err = stream.Send(request)
+
+	// send a ZNode delete for /test
 	request = &RpcRequest{
 		Header: &RpcRequestHeader{
 			Xid: GetXid(),
