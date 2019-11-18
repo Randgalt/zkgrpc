@@ -5,7 +5,7 @@
 ```
 git clone -b wip-grpc https://github.com/Randgalt/zookeeper.git zkgrpc
 cd zkgrpc
-mvn -DskipTests -Darguments="-DskipTests"
+mvn -DskipTests -Darguments="-DskipTests" package
 cp conf/zoo_sample.cfg conf/zoo.cfg
 export SERVER_JVMFLAGS=-Dzookeeper.serverCnxnFactory=org.apache.zookeeper.grpc.RpcServerCnxnFactory
 bin/zkServer.sh start-foreground
