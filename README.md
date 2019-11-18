@@ -13,8 +13,11 @@ bin/zkServer.sh start-foreground
 
 ### Build gRPC Go Client Test
 
+In your Go directory...
+
 ```
 git clone https://github.com/Randgalt/zkgrpc.git
+cd zkgrpc
 go get
 go build main.go
 go run zkgrpc
